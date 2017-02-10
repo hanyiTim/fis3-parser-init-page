@@ -1,10 +1,11 @@
-/**
+﻿/**
  *
  *
  *
  * 
  */
 var cc_widgets={};   //储存 page html 用到的 widget；
+var cc_pagejs={};
 var cc_no_repeat={};   //依赖的js css 去重；
 var __widget_dir=fis.get("fyg_conf")["widget_dir"] || "widget/";
 module.exports=function(content,file,setting){
@@ -12,6 +13,8 @@ module.exports=function(content,file,setting){
 	var init_pageHtml=function(content,file){
 		var cheerio=require("cheerio"),
 		$=cheerio.load(content),
+		file_js=fis.file.wrap(file.rest+".js"),
+		cc_pagejs_content=file_js.getContent(),
 		$_widget=$("[data-widgetname]"),
 		$_head=$("head"),
 		$_script=$("script[data-name]");
@@ -21,9 +24,10 @@ module.exports=function(content,file,setting){
 		var file_requires=file.requires;
 
 		cc_widgets[cc_name]=[];
+		cc_pagejs[cc_main]=[];
 		cc_no_repeat[cc_name]={};
 
-		var cc_script="<script>var main=require('"+cc_name+"');main."+cc_main+"();</script>";
+		var cc_script="\n<script type='text/javascript'>var main=require('"+cc_name+"');main."+cc_main+"();</script>";
 		var arr_js=[],
 			arr_scss=[];
 
@@ -34,7 +38,7 @@ module.exports=function(content,file,setting){
 					arr_scss.push('<link rel=\"stylesheet\"" href=\"'+file_requires[i]+'\" \/\>');
 				}
 				else if(/.*\.js/.test(file_requires)){
-					arr_js.push("<script src=\'"+file_requires[i]+"\'></script>");
+					arr_js.push("<script type='text/javascript' src=\'"+file_requires[i]+"\'></script>");
 				}
 			}
 		};
@@ -47,12 +51,13 @@ module.exports=function(content,file,setting){
 					cc_no_repeat[cc_name][cc_widgetname]=true;
 
 					cc_widgets[cc_name].push(__widget_dir+cc_widgetname+"\/"+cc_widgetname);
-					arr_js.push("<script src=\'"+__widget_dir+cc_widgetname+"\/"+cc_widgetname+"\'></script>");
+					arr_js.push("<script type='text/javascript' src=\'"+__widget_dir+cc_widgetname+"\/"+cc_widgetname+"\'></script>");
 					arr_scss.push("<link rel=\'stylesheet\' href=\'"+__widget_dir+cc_widgetname+"\/"+cc_widgetname+".scss"+"\'\/\>");
 				}
 				
 			}
 		});
+
 		$_script.after(cc_script);
 		$_script.before(arr_js.join("\n"));
 		$_head.append(arr_scss.join("\n"));
