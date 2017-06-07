@@ -4,17 +4,16 @@
  *
  * 
  */
+var path=require('path');
+var cheerio=require("cheerio");
+
 var cc_widgets={};   //储存 page html 用到的 widget；
-var cc_pagejs={};
 var cc_no_repeat={};   //依赖的js css 去重；
 var __widget_dir=fis.get("fyg_conf")["widget_dir"] || "widget/";
 module.exports=function(content,file,setting){
 	//初始化 page  html页面，添加对应的widget js文件，以及页面对应js执行script
 	var init_pageHtml=function(content,file){
-		var cheerio=require("cheerio"),
-		$=cheerio.load(content),
-		file_js=fis.file.wrap(file.rest+".js"),
-		cc_pagejs_content=file_js.getContent(),
+		var $=cheerio.load(content),
 		$_widget=$("[data-widgetname]"),
 		$_head=$("head"),
 		$_script=$("script[data-name]");
@@ -24,10 +23,9 @@ module.exports=function(content,file,setting){
 		var file_requires=file.requires;
 
 		cc_widgets[cc_name]=[];
-		cc_pagejs[cc_main]=[];
 		cc_no_repeat[cc_name]={};
 
-		var cc_script="\n<script type='text/javascript'>var main=require('"+cc_name+"');main."+cc_main+"();</script>";
+		var cc_script="<script>var main=require('"+cc_name+"');main."+cc_main+"();</script>";
 		var arr_js=[],
 			arr_scss=[];
 
@@ -38,7 +36,7 @@ module.exports=function(content,file,setting){
 					arr_scss.push('<link rel=\"stylesheet\"" href=\"'+file_requires[i]+'\" \/\>');
 				}
 				else if(/.*\.js/.test(file_requires)){
-					arr_js.push("<script type='text/javascript' src=\'"+file_requires[i]+"\'></script>");
+					arr_js.push("<script src=\'"+file_requires[i]+"\'></script>");
 				}
 			}
 		};
@@ -51,13 +49,12 @@ module.exports=function(content,file,setting){
 					cc_no_repeat[cc_name][cc_widgetname]=true;
 
 					cc_widgets[cc_name].push(__widget_dir+cc_widgetname+"\/"+cc_widgetname);
-					arr_js.push("<script type='text/javascript' src=\'"+__widget_dir+cc_widgetname+"\/"+cc_widgetname+"\'></script>");
+					arr_js.push("<script src=\'"+__widget_dir+cc_widgetname+"\/"+cc_widgetname+"\'></script>");
 					arr_scss.push("<link rel=\'stylesheet\' href=\'"+__widget_dir+cc_widgetname+"\/"+cc_widgetname+".scss"+"\'\/\>");
 				}
 				
 			}
 		});
-
 		$_script.after(cc_script);
 		$_script.before(arr_js.join("\n"));
 		$_head.append(arr_scss.join("\n"));
@@ -75,10 +72,20 @@ module.exports=function(content,file,setting){
 	};
 	if(file._likes.isHtmlLike){
 		content=init_pageHtml(content,file);
+		//读取同目录下唯一js，之所以在html变动的时候去改变js，是引入如果分开去init，在html改变的时候，js不会有变化，这样会有bug
+		let jsPATH=`${file.realpathNoExt}.js`;
+		if(fis.util.isFile(jsPATH)){
+			let jsContent=fis.util.read(jsPATH);
+			if(/\/\*\d*?\*\//gi.test(jsContent)){
+				fis.util.write(jsPATH,`${jsContent.replace(/\/\*\d*?\*\//gi,'/*'+new Date().getTime()+'*/')}`);
+			}else{
+				fis.util.write(jsPATH,`/*${new Date().getTime()}*/\n${jsContent}`);
+			}
+			
+		}
 	}
 	else if(file._likes.isJsLike){
 		content=init_pageJs(content,file);
 	}
-
 	return content;
 };
